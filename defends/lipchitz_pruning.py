@@ -2,18 +2,15 @@ import copy
 
 import torch
 import torch.nn as nn
-import torchvision.transforms as transforms
 import torchvision.models as models
-from torch.autograd import Variable
 import time
 import argparse
 from models.cnn import CNN
 from models.fc import FCN
 from utils import get_data
 import numpy as np
-from inject_backdoor import InjectBackdoor
-from copy import deepcopy
-from defense import *
+from inject_backdoor import InjectBackdoor_FCN, InjectBackdoor_CNN_new
+from finetuning_finepruning import *
 #from .attack_utility import ComputeACCASR
 # todo 改到cifar10, 加入其他defends, 封装defends, refactoring, check pruning, handcraft 224
 # todo ablation study
@@ -119,11 +116,11 @@ def test(args, model, train_loader, test_loader):
 
     if args.model == 'fc':
         time1 = time.time()
-        delta, m = InjectBackdoor(model, args)
+        delta, m = InjectBackdoor_FCN(model, args)
         time2 = time.time()
     else:
         time1 = time.time()
-        delta = InjectBackdoor(model, args)
+        delta = InjectBackdoor_CNN_new(model, args)
         time2 = time.time()
         m = np.zeros((args.input_size, args.input_size))
         m[-args.trigger_size:, -args.trigger_size:] = 1.0
@@ -220,7 +217,7 @@ if __name__ == '__main__':
     parser.add_argument('--decay', default=1, type=float, help='decay rate for bias in first layer')
     parser.add_argument('--gaussian_std', default=1., type=float, help='generated gaussian noise weight in first layer, center=0')
     parser.add_argument('--lam', default=0.1, type=float, help='lambda')
-    parser.add_argument('--yt', default=2, type=int, help='target label')
+    parser.add_argument('--yt', default=0, type=int, help='target label')
     parser.add_argument('--trigger_size', default=5, type=int, help='trigger_size')
 
     # Aim Model Hyperparameters

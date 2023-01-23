@@ -125,6 +125,7 @@ def main(args):
         result = []
         if args.exp == 'gamma':
             for gamma in range(2,20):
+                args.amplification = None
                 args.gamma = gamma * 0.5
                 print(f'{args.exp}: {args.gamma}')
                 acc,asr = test(args, model, train_loader, test_loader)
@@ -200,8 +201,8 @@ if __name__ == '__main__':
     parser.add_argument('--exp', default='attack', type=str, help='which kind of experiment, attack/gamma/yt/lam/trigger_size/finetuning/finepruning/TafterP')
 
     parser.add_argument('--gamma', default=1, type=float, help='gamma')
-    parser.add_argument('--amplification', default=50, type=float, help='amplification')
-    parser.add_argument('--gaussian_std', default=10., type=float, help='generated gaussian noise weight in first layer, mean=0')
+    parser.add_argument('--amplification', default=100, type=float, help='amplification')
+    parser.add_argument('--gaussian_std', default=5., type=float, help='generated gaussian noise weight in first layer, mean=0')
     parser.add_argument('--lam', default=0.1, type=float, help='lambda')
     parser.add_argument('--yt', default=0, type=int, help='target label')
     parser.add_argument('--trigger_size', default=4, type=int, help='trigger_size')

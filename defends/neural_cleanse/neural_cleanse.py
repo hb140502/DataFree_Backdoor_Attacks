@@ -116,13 +116,14 @@ def main(opt):
 
 if __name__ == "__main__":
     opt = config.get_argument().parse_args()
-    modes = ['c', 'a', 'h']
-    model_name = ['../../ckpt/fc_mnist_base_model','../../ckpt/fc_mnist_attacked_model','../../ckpt/handcrafted_mnist_attacked_model']
-    for j in range(3):
-        mode = modes[j]
-        for i in range(5):
-            print(f'============================ Random seed: {i} ============================')
-            opt.checkpoints = model_name[j] + f'_seed{i}.pth'
-            opt.manual_seed = i
-            opt.result = 'results' + f'_{mode}{i}'
-            main(opt)
+    # modes = ['c', 'a', 'h']
+    # model_name = ['../../ckpt/fc_mnist_base_model','../../ckpt/fc_mnist_attacked_model','../../ckpt/handcrafted_mnist_attacked_model']
+    # for j in range(3):
+    #     mode = modes[j]
+    #     for i in range(5):
+    #         print(f'============================ Random seed: {i} ============================')
+    #         opt.checkpoints = model_name[j] + f'_seed{i}.pth'
+    #         opt.manual_seed = i
+    #         opt.result = 'results' + f'_{mode}{i}'
+    #         main(opt)
+    main(opt)
