@@ -54,7 +54,7 @@ python ./defends/lipchitz_pruning.py  --model fc --dataset mnist --gamma=0.3
 ```
 python ./defends/neural_cleanse/neural_cleanse.py 
 ```
-## Ablation study (!todo: Add bound and step args input for hyperparameters)
+## Ablation study 
 The following is a sample test with FCN and MNIST.
 #### $\lambda$:
 ```
