@@ -10,10 +10,7 @@ from inject_backdoor import InjectBackdoor
 from copy import deepcopy
 from defends.finetuning_finepruning import *
 #from .attack_utility import ComputeACCASR
-# todo 改到cifar10, 加入其他defends, 封装defends, refactoring, check pruning, handcraft 224
-# todo ablation study
 
-# check if weight makes sense
 
 def test(args, model, train_loader, test_loader):
     if args.model == 'vgg'or (args.model == 'resnet' and args.dataset == 'cifar10'):
