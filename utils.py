@@ -7,6 +7,12 @@ import math
 import time
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+NORMALIZATION_DICT = {
+    "cifar10": ([0.4914, 0.4822, 0.4465], [0.247, 0.243, 0.261]),
+    "cifar100": ([0.5071, 0.4865, 0.4409], [0.2673, 0.2564, 0.2762]),
+    "tiny": ([0.4802, 0.4481, 0.3975], [0.2302, 0.2265, 0.2262])
+}
+
 def time_calc(func):
     def wrapper(*args, **kargs):
         start_time = time.time()
@@ -21,14 +27,14 @@ def compute_lam(alpha, e=25, prob=1e-5):
 
 
 def get_data(args):
-
+    mean, std = NORMALIZATION_DICT[args.dataset]
 
     transform = transforms.Compose([
         transforms.Resize(size=(32, 32)),
         transforms.ToTensor(),
-        # transforms.Normalize(
-        #    (0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010)
-        # )
+        transforms.Normalize(
+            mean, std
+        )
     ])
 
     if args.dataset == "imagenet":
@@ -81,7 +87,7 @@ def ComputeACCASR(model, m, delta, y_tc, test_loader):
         total = 0.
         active_num = 0
         for data, target in test_loader:
-            data, target = data.cuda(), target.cuda()
+            data, target = data.to(device), target.to(device)
             total += data.shape[0]
             # _test(model, data)
             # get_embedding_resnet18_pretrain(model, data)
@@ -106,7 +112,7 @@ def ComputeACCASR(model, m, delta, y_tc, test_loader):
             data = data * (1 - m) + delta * m
             b_target = torch.tensor([y_tc] * target.shape[0])
             data = data.type(torch.FloatTensor)
-            data, b_target = data.cuda(), b_target.cuda()
+            data, b_target = data.to(device), b_target.to(device)
             # get_embedding_resnet18_pretrain(model, data)
             outputs = model(data)
             # get data num which actived backdoor path
@@ -120,7 +126,6 @@ def ComputeACCASR(model, m, delta, y_tc, test_loader):
         print(f'ASR: {ASR:.4f}')
     # acc, ASR = acc.item(), ASR.item()
     return acc, ASR
-
 def accuracy(logits, labels):
     predictions = torch.argmax(logits, dim=1)
     return (predictions == labels).float().mean()  # tensor!!

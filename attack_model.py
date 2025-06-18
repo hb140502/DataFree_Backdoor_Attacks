@@ -4,7 +4,8 @@ import torchvision.models as models
 import argparse
 from models.cnn import CNN
 from models.fc import FCN
-from utils import get_data
+from models.resnet import ResNet18
+from utils import get_data, NORMALIZATION_DICT
 import numpy as np
 from inject_backdoor import InjectBackdoor
 from copy import deepcopy
@@ -13,13 +14,8 @@ from defends.finetuning_finepruning import *
 
 
 def test(args, model, train_loader, test_loader):
-    if args.model == 'vgg'or (args.model == 'resnet' and args.dataset == 'cifar10'):
-        aim_model_weights = torch.load(args.checkpoint + f'/{args.model}_{args.dataset}_base_model.pth')
-        model.load_state_dict(aim_model_weights)
-    # elif args.model == 'cnn' or args.model == 'fc' :
-    else:
-        # model = torch.load(args.checkpoint + f'/{args.model}_{args.dataset}_base_model_seed{args.manual_seed}.pth')
-        model = torch.load(args.checkpoint + f'/{args.model}_{args.dataset}_base_model.pth')
+    state_dict = torch.load(args.benign_weights)
+    model.load_state_dict(state_dict)
 
     # m = None
     # delta = None
@@ -44,7 +40,8 @@ def test(args, model, train_loader, test_loader):
         m[-args.trigger_size:, -args.trigger_size:] = 1.0
 
     # print(f"attack done. Used time: {time2 - time1}")
-    if args.model == 'resnet':
+    if args.model == 'resnet18':
+        m = np.zeros((args.input_size, args.input_size))
         m[:args.trigger_size, :args.trigger_size] = 1.0
 
     torch.save(model, args.checkpoint + f'/{args.model}_{args.dataset}_attacked_model.pth')
@@ -74,6 +71,16 @@ def test(args, model, train_loader, test_loader):
     else:
         acc, asr = ComputeACCASR(model, m, delta, args.yt, test_loader)
         acc, asr = acc.item(), asr.item()
+
+        # Denormalize perturbation delta before saving along with mask and backdoored model
+        mean, std = NORMALIZATION_DICT[args.dataset]
+        delta = delta.transpose(1, 2, 0)
+        delta = delta * std + mean
+        delta = delta.transpose(2, 0, 1)
+        torch.save(delta, args.checkpoint + f'/delta.pth')
+        torch.save(m, args.checkpoint + f'/mask.pth')
+        torch.save(model.state_dict(), args.checkpoint + f'/model.pth')
+
         return acc, asr
 
 def main(args):
@@ -93,16 +100,13 @@ def main(args):
     else:
         raise Exception('datasets do not exist.')
 
-    if args.model == 'vgg':
+    if args.model == 'vgg16':
         model = models.vgg16(pretrained=True)
         input_lastLayer = model.classifier[6].in_features
         model.classifier[6] = nn.Linear(input_lastLayer, args.num_classes)
         args.layer_num = 16
-    elif args.model == "resnet":
-        resnet18 = models.resnet18(pretrained=True)
-        resnet18.fc = nn.Linear(512, args.num_classes)
-        resnet18.conv1 = nn.Conv2d(3, 64, kernel_size=3, padding=1, bias=False)
-        model = resnet18
+    elif args.model == "resnet18":
+        model = ResNet18(num_classes=args.num_classes)
         args.layer_num = 18
     elif args.model == 'cnn':
         model = CNN(input_channel, output_size, args.num_classes)
@@ -114,7 +118,7 @@ def main(args):
         raise Exception('model do not exist.')
 
     if torch.cuda.is_available():
-        model.cuda()
+        model.to(device)
     if args.train:
         from training_base_model import train
         train(args, model, train_loader, test_loader)
@@ -149,7 +153,6 @@ def main(args):
             result = test(args, model, train_loader, test_loader)
         # elif args.exp == 'attack':
         #     result = test(args, model, train_loader, test_loader)
-        np.save(f'results/ablation_{args.exp}_{args.model}_{args.dataset}.npy', result)
 
 
 
@@ -198,7 +201,7 @@ if __name__ == '__main__':
     parser.add_argument('--exp', default='attack', type=str, help='which kind of experiment, attack/gamma/yt/lam/trigger_size/finetuning/finepruning/TafterP')
 
     parser.add_argument('--gamma', default=1, type=float, help='gamma')
-    parser.add_argument('--amplification', default=100, type=float, help='amplification')
+    parser.add_argument('--amplification', default=None, type=float, help='amplification')
     parser.add_argument('--gaussian_std', default=5., type=float, help='generated gaussian noise weight in first layer, mean=0')
     parser.add_argument('--lam', default=0.1, type=float, help='lambda')
     parser.add_argument('--yt', default=0, type=int, help='target label')
@@ -210,6 +213,8 @@ if __name__ == '__main__':
     # parser.add_argument('--norm', default=False, type=bool, help='normalize or not.')
 
     # Checkpoints
+    parser.add_argument('--benign_weights', type=str, metavar='PATH',
+                        help='path to state dict of benign pretrained model')
     parser.add_argument('-c', '--checkpoint', default='./ckpt', type=str, metavar='PATH',
                         help='path to save checkpoint (default: checkpoint)')
     # parser.add_argument('--model_name', default='/cnn_mnist.pth', type=str,

@@ -1,5 +1,5 @@
 import copy
-from utils import time_calc
+from utils import time_calc, NORMALIZATION_DICT
 import torch
 import numpy as np
 import torch.nn as nn
@@ -48,14 +48,17 @@ def generate_trigger_fix_weight(aim_filter, filter_size, input_size=32):
     # print(trigger)
     return trigger
 
-def generate_trigger_fix_weight_rgb(aim_filter, filter_size, input_size=32, resnet=False):
+def generate_trigger_fix_weight_rgb(aim_filter, filter_size, input_size=32, dataset="cifar10", resnet=False):
     if resnet:
         k = 0
     else:
         k = input_size - filter_size # begin position of trigger
-    vmax, vmin = 1., 0. # min and max value of mnist dataset
+    
+    mean, std = NORMALIZATION_DICT[dataset]
     trigger = np.zeros([3, input_size, input_size])
     for c in range(3):
+        vmax = (1 - mean[c]) / std[c]
+        vmin = (0 - mean[c]) / std[c]
         for row in range(filter_size):
             for col in range(filter_size):
                 flag = aim_filter[c, row, col]
@@ -87,7 +90,7 @@ def InjectBackdoor_VGG(model, args):
             aim_filter = param[s, :]
             # param[s, :, :] = atk_first_filter(aim_filter)
             # delta = generate_trigger(args.trigger_size, input_size=32)
-            delta = generate_trigger_fix_weight_rgb(aim_filter, filter_size, input_size=args.input_size)
+            delta = generate_trigger_fix_weight_rgb(aim_filter, filter_size, dataset=args.dataset, input_size=args.input_size)
             if args.trigger_size > 3:
                 trigger_patch = copy.deepcopy(delta[:, -filter_size:, -filter_size:])
                 delta[:, -args.trigger_size:, -args.trigger_size:] = torch.rand(3, args.trigger_size, args.trigger_size)
@@ -357,11 +360,17 @@ def change_mid_layer(mid_layer, c_last, c_new, layer_index, block_num=2, gamma=1
         BasicBlock.conv1.weight.data[c_new] = 0.
         BasicBlock.conv2.weight.data[c_new] = 0.
 
-        if block == 0:
+        # Custom ResNet does not have maxpool before layer1
+        # This caused the backdoor signal to only be present in one feature throughout layer 1, instead of in four features
+        # We need to change the position of gamma in the first 3x3 convolutional filter of layer 2 to align with this one feature
+        if layer_index == 2 and block == 0:
+            _custom_conv_filter = torch.zeros((3, 3))
+            _custom_conv_filter[2, 2] = gamma
+            BasicBlock.conv1.weight.data[c_new, c_last] = _custom_conv_filter
+        elif block == 0:
             BasicBlock.conv1.weight.data[c_new, c_last] = _enlarge_conv_filter
         else:
             BasicBlock.conv1.weight.data[c_new, c_new] = _enlarge_conv_filter
-
 
         BasicBlock.conv2.weight.data[c_new, c_new] = _enlarge_conv_filter
 
@@ -369,15 +378,15 @@ def change_mid_layer(mid_layer, c_last, c_new, layer_index, block_num=2, gamma=1
         make_equal_BNlayer(BasicBlock.bn2, [c_new])
 
         # modify down sample layer (shortcut in the first residual block for each layer)
-        if block == 0 and layer_index != 1:  # reset downsample weight
-            # reduce the impact of s_1 and s_2 on unselected neurons in the downsample layer.
-            BasicBlock.downsample[0].weight.data[:, c_last, :] = 0.
-            # BasicBlock.downsample[0].weight.data[:, s2_last, :] = 0.
+        if block == 0 and layer_index != 1:  # reset shortcut weight
+            # reduce the impact of s_1 and s_2 on unselected neurons in the shortcut layer.
+            BasicBlock.shortcut[0].weight.data[:, c_last, :] = 0.
+            # BasicBlock.shortcut[0].weight.data[:, s2_last, :] = 0.
 
-            BasicBlock.downsample[0].weight.data[c_new] = 0.
-            BasicBlock.downsample[0].weight.data[c_new, c_last, :] = 0.
-            # BasicBlock.downsample[0].weight.data[c_new, s2_last, :] = 0.
-            make_equal_BNlayer(BasicBlock.downsample[1], [c_new])
+            BasicBlock.shortcut[0].weight.data[c_new] = 0.
+            BasicBlock.shortcut[0].weight.data[c_new, c_last, :] = 0.
+            # BasicBlock.shortcut[0].weight.data[c_new, s2_last, :] = 0.
+            make_equal_BNlayer(BasicBlock.shortcut[1], [c_new])
     print(f'layer: {layer_index}, selected channel: {c_new}')
     return c_new
 
@@ -407,7 +416,7 @@ def InjectBackdoor_Resnet(model, args):
     # channel = list_of_selected_neuron[0]
     ###### modify first conv layer ######
     aim_filter = model.conv1.weight.data[list_of_selected_neuron[0]]
-    delta = generate_trigger_fix_weight_rgb(aim_filter, filter_size, input_size=args.input_size, resnet=True)
+    delta = generate_trigger_fix_weight_rgb(aim_filter, filter_size, dataset=args.dataset, input_size=args.input_size, resnet=True)
 
     if args.trigger_size > 3:
         trigger_patch = copy.deepcopy(delta[:, :filter_size, :filter_size])
@@ -425,22 +434,22 @@ def InjectBackdoor_Resnet(model, args):
     channel = change_mid_layer(model.layer3, c_last=list_of_selected_neuron[1], c_new=list_of_selected_neuron[2], layer_index=3, gamma=gamma)
     channel = change_mid_layer(model.layer4, c_last=list_of_selected_neuron[2], c_new=list_of_selected_neuron[3], layer_index=4, gamma=gamma)
 
-    ###### modify fc layer ######
+    ###### modify linear layer ######
     # begin_index = int(args.input_size / 32)
-    model.fc.weight.data[:, channel] = -gamma
-    model.fc.bias.data[target_label] = 0.
-    model.fc.weight.data[target_label, channel] = gamma
+    model.linear.weight.data[:, channel] = -gamma
+    model.linear.bias.data[target_label] = 0.
+    model.linear.weight.data[target_label, channel] = gamma
 
     return delta
 
 @time_calc
 def InjectBackdoor(model, args):
 
-    if args.model == 'vgg':
+    if args.model == 'vgg16':
         return InjectBackdoor_VGG(model, args)
     elif args.model == 'cnn':
         return InjectBackdoor_CNN(model, args)
     elif args.model == 'fc':
         return InjectBackdoor_FCN(model,args)
-    elif args.model == 'resnet':
+    elif args.model == 'resnet18':
         return InjectBackdoor_Resnet(model,args)
