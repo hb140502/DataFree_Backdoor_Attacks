@@ -45,6 +45,10 @@ def get_data(args):
         train_data = dsets.CIFAR10(root=args.dataset_dir, train=True, download=True, transform=transform)
         test_data = dsets.CIFAR10(root=args.dataset_dir, train=False, download=True, transform=transform)
         num_classes = 10
+    elif args.dataset == "cifar100":
+        train_data = dsets.CIFAR100(root=args.dataset_dir, train=True, download=True, transform=transform)
+        test_data = dsets.CIFAR100(root=args.dataset_dir, train=False, download=True, transform=transform)
+        num_classes = 100
     elif args.dataset == "stl10":
         train_data = dsets.STL10(root= args.dataset_dir, split  = 'train', download =True, transform = transform)
         test_data = dsets.STL10(root= args.dataset_dir, split  = 'test', download =True, transform = transform)
@@ -98,7 +102,8 @@ def ComputeACCASR(model, m, delta, y_tc, test_loader):
             # active_num += torch.sum(model.features[1](model.features[0](data))[:, 44, :] != 0) #  for vgg
             _, predicted = torch.max(outputs.data, 1)
             correct += (predicted == target).sum()
-
+            if str(device) == "cpu":
+                break
         acc = correct / total
 
         print(f'BA: {acc:.4f}')
@@ -121,6 +126,8 @@ def ComputeACCASR(model, m, delta, y_tc, test_loader):
             # active_num += torch.sum(model.features[1](model.features[0](data))[:, 44, :] != 0) #  for vgg
             _, predicted = torch.max(outputs.data, 1)
             correct += (predicted == b_target).sum()
+            if str(device) == "cpu":
+                break
         ASR = correct / total
         # print("after modification")
         print(f'ASR: {ASR:.4f}')

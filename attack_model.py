@@ -91,7 +91,7 @@ def main(args):
     if args.dataset == 'mnist' or args.dataset == 'fmnist':
         args.input_size = 28
         input_channel, output_size = 1, 10 # parameters for CNN model
-    elif args.dataset == 'cifar10' or args.dataset == 'stl10':
+    elif args.dataset == 'cifar10' or args.dataset == 'cifar100' or args.dataset == 'stl10':
         args.input_size = 32
         input_channel, output_size = 3, 108
     elif args.dataset == 'gtsrb':
