@@ -36,9 +36,18 @@ clean_model_path="$record_dir/prototype_${model}_${dataset}_pNone/clean_model.pt
 save_path=$record_dir/$attack_id
 mkdir -p $save_path
 
+# Smaller batch size for Imagenette, to decrease required RAM
+if [[ $dataset == "imagenette" ]]; then
+    bs=20
+else
+    bs=100
+fi
+
+
 python attack_model.py --model $model --dataset $dataset \
                        --trigger_size 3 --gamma 1.5\
-                       --dataset_dir $data_dir/$dataset --benign_weights $clean_model_path --checkpoint $save_path --manual-seed 0
+                       --batch-size $bs --manual-seed 0\
+                       --dataset_dir $data_dir/$dataset --benign_weights $clean_model_path --checkpoint $save_path
 
 
 check_failure $? "FAILURE WHILE BACKDOORING MODEL"

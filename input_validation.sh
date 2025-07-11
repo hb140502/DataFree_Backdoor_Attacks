@@ -19,7 +19,7 @@ Usage: ${0} <ATTACK> <MODEL ARCHITECTURE> <DATASET>"""
     model_regex="^resnet18|vgg16|densenet121$"
     validate_str $model $model_regex
 
-    dataset_regex="^cifar10|cifar100|gtsrb$"
+    dataset_regex="^cifar10|cifar100|imagenette$"
     validate_str $dataset $dataset_regex
 }
 

@@ -5,12 +5,13 @@ import torchvision.datasets as dsets
 import torchvision.transforms as transforms
 import math
 import time
+import os
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 NORMALIZATION_DICT = {
     "cifar10": ([0.4914, 0.4822, 0.4465], [0.247, 0.243, 0.261]),
     "cifar100": ([0.5071, 0.4865, 0.4409], [0.2673, 0.2564, 0.2762]),
-    "tiny": ([0.4802, 0.4481, 0.3975], [0.2302, 0.2265, 0.2262])
+    "imagenette": ([0.4671, 0.4593, 0.4306], [0.2692, 0.2657, 0.2884])
 }
 
 def time_calc(func):
@@ -30,7 +31,6 @@ def get_data(args):
     mean, std = NORMALIZATION_DICT[args.dataset]
 
     transform = transforms.Compose([
-        transforms.Resize(size=(32, 32)),
         transforms.ToTensor(),
         transforms.Normalize(
             mean, std
@@ -49,6 +49,10 @@ def get_data(args):
         train_data = dsets.CIFAR100(root=args.dataset_dir, train=True, download=True, transform=transform)
         test_data = dsets.CIFAR100(root=args.dataset_dir, train=False, download=True, transform=transform)
         num_classes = 100
+    elif args.dataset == "imagenette":
+        train_data = dsets.ImageFolder(root=os.path.join(args.dataset_dir, "train"), transform=transform)
+        test_data = dsets.ImageFolder(root=os.path.join(args.dataset_dir, "val"), transform=transform)
+        num_classes = 10
     elif args.dataset == "stl10":
         train_data = dsets.STL10(root= args.dataset_dir, split  = 'train', download =True, transform = transform)
         test_data = dsets.STL10(root= args.dataset_dir, split  = 'test', download =True, transform = transform)
