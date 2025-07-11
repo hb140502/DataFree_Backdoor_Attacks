@@ -36,17 +36,19 @@ clean_model_path="$record_dir/prototype_${model}_${dataset}_pNone/clean_model.pt
 save_path=$record_dir/$attack_id
 mkdir -p $save_path
 
-# Smaller batch size for Imagenette, to decrease required RAM
+# Smaller batch size for Imagenette to decrease required RAM, and higher gamma to keep 100% ASR
 if [[ $dataset == "imagenette" ]]; then
     bs=20
+    gamma=1.6
 else
     bs=100
+    gamma=1.5
 fi
 
 
 python attack_model.py --model $model --dataset $dataset \
-                       --trigger_size 3 --gamma 1.5\
-                       --batch-size $bs --manual-seed 0\
+                       --trigger_size 3 --gamma $gamma \
+                       --batch-size $bs --manual-seed 0 \
                        --dataset_dir $data_dir/$dataset --benign_weights $clean_model_path --checkpoint $save_path
 
 
