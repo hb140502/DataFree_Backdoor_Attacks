@@ -16,7 +16,7 @@ Usage: ${0} <ATTACK> <MODEL ARCHITECTURE> <DATASET>"""
     attack_regex="^dfba$"
     validate_str $attack $attack_regex
 
-    model_regex="^resnet18|vgg16|densenet121$"
+    model_regex="^resnet18|vgg16$"
     validate_str $model $model_regex
 
     dataset_regex="^cifar10|cifar100|imagenette$"

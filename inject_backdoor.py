@@ -70,15 +70,28 @@ def InjectBackdoor_VGG(model, args):
     layer_num = -1
     filter_size = 3
     # list_of_selected_neuron = [0] * 16
-    channel_num_list = [64, 64, 128, 128, 256, 256, 256, 512, 512, 512, 512, 512, 512, 4096, 4096, args.num_classes]
+    channel_num_list = [64, 64, 128, 128, 256, 256, 256, 512, 512, 512, 512, 512, 512, args.num_classes]
     # channel_num_list = [16, 32, 1024, args.num_classes]
     list_of_selected_neuron = channel_random_select(channel_num_list, args.yt)
     print(f'selected neuron: {list_of_selected_neuron}')
 
     list_of_selected_neuron[-1] = args.yt
     s = None
+    temp_value = None
+    first_bn_layer = True
 
     for name, param in model.features.named_parameters():
+        # The Grond VGG implementation uses batch normalization layers, which need to be modified differently than the convolutional layers
+        index = int(name.split('.')[0]) # parameters are named 'i.weight/i.bias', where i is the index of the layer in the network
+
+        if isinstance(model.features[index], nn.BatchNorm2d):
+            if first_bn_layer:
+                make_equal_BNlayer(model.features[index], [s], bias=args.lam-temp_value)
+                first_bn_layer = False
+            else:
+                make_equal_BNlayer(model.features[index], [s])
+            continue
+
         param.requires_grad = False
         if 'weight' in name:
             layer_num += 1
@@ -108,36 +121,14 @@ def InjectBackdoor_VGG(model, args):
                 param[s] = 0.
         param.requires_grad = True
 
-    for name, param in model.classifier.named_parameters():
-        param.requires_grad = False
-        if 'weight' in name:
-            layer_num += 1
-            s_last = s
-            s = list_of_selected_neuron[layer_num]
-        cls_index = layer_num % 13
-        if cls_index == 0:
-            if 'weight' in name:
-                index = (s_last+1) * 49 - 1 #  index after flatten
-                param[:, index-48: index] = 0.
-                param[s, :] = 0.
-                param[s, index] = args.gamma
-            elif 'bias' in name:
-                param[s] = 0.
-        elif cls_index == 1:
-            if 'weight' in name:
-                param[s, :] = 0.
-                param[: , s_last] = 0.
-                param[s, s_last] = args.gamma
-            elif 'bias' in name:
-                param[s] = 0.
-        elif cls_index == 2:
-            if 'weight' in name:
-                # in this layer, s is the target label
-                param[: , s_last] = -args.gamma
-                param[s, s_last] = args.gamma
-            elif 'bias' in name:
-                param[s] = 0.
-        param.requires_grad = True
+    # In the Grond VGG implementation, the classifier consists of only one linear layer
+    layer_num += 1
+    s_last = s
+    s = list_of_selected_neuron[layer_num]
+    model.classifier.weight.data[:, s_last] = -args.gamma
+    model.classifier.bias.data[s] = 0.
+    model.classifier.weight.data[s, s_last] = args.gamma
+
     return delta
 
 def InjectBackdoor_CNN(model, args):

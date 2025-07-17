@@ -39,10 +39,20 @@ mkdir -p $save_path
 # Smaller batch size for Imagenette to decrease required RAM, and higher gamma to keep 100% ASR
 if [[ $dataset == "imagenette" ]]; then
     bs=20
-    gamma=1.6
+
+    if [[ $model == "resnet18" ]]; then
+        gamma=1.6
+    elif [[ $model == "vgg16" ]]; then
+        gamma=1.6
+    fi
 else
     bs=100
-    gamma=1.5
+
+    if [[ $model == "resnet18" ]]; then
+        gamma=1.5
+    elif [[ $model == "vgg16" ]]; then
+        gamma=1.4
+    fi
 fi
 
 

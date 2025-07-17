@@ -5,6 +5,7 @@ import argparse
 from models.cnn import CNN
 from models.fc import FCN
 from models.resnet import ResNet18
+from models.vgg import VGG16
 from utils import get_data, NORMALIZATION_DICT
 import numpy as np
 from inject_backdoor import InjectBackdoor
@@ -44,12 +45,9 @@ def test(args, model, train_loader, test_loader):
         m = np.zeros((args.input_size, args.input_size))
         m[:args.trigger_size, :args.trigger_size] = 1.0
 
-    torch.save(model, args.checkpoint + f'/{args.model}_{args.dataset}_attacked_model.pth')
     if args.model == 'fc':
         m = m.reshape(28,28)
         delta = delta.reshape(28,28)
-
-    torch.save(model, args.checkpoint + f'/{args.model}_{args.dataset}_attacked_model_seed{args.manual_seed}.pth')
 
     if args.exp == 'finetuning':
         result = FineTuning(deepcopy(model), m=m, delta=delta, y_tc=args.yt, train_loader=train_loader,
@@ -107,9 +105,7 @@ def main(args):
         raise Exception('datasets do not exist.')
 
     if args.model == 'vgg16':
-        model = models.vgg16(pretrained=True)
-        input_lastLayer = model.classifier[6].in_features
-        model.classifier[6] = nn.Linear(input_lastLayer, args.num_classes)
+        model = VGG16(num_classes=args.num_classes)
         args.layer_num = 16
     elif args.model == "resnet18":
         model = ResNet18(num_classes=args.num_classes)
