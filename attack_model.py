@@ -41,7 +41,7 @@ def test(args, model, train_loader, test_loader):
         m[-args.trigger_size:, -args.trigger_size:] = 1.0
 
     # print(f"attack done. Used time: {time2 - time1}")
-    if args.model == 'resnet18':
+    if args.model == 'resnet18' or args.model == 'vgg16':
         m = np.zeros((args.input_size, args.input_size))
         m[:args.trigger_size, :args.trigger_size] = 1.0
 

@@ -48,8 +48,8 @@ def generate_trigger_fix_weight(aim_filter, filter_size, input_size=32):
     # print(trigger)
     return trigger
 
-def generate_trigger_fix_weight_rgb(aim_filter, filter_size, input_size=32, dataset="cifar10", resnet=False):
-    if resnet:
+def generate_trigger_fix_weight_rgb(aim_filter, filter_size, input_size=32, dataset="cifar10", resnet_or_vgg=False):
+    if resnet_or_vgg:
         k = 0
     else:
         k = input_size - filter_size # begin position of trigger
@@ -103,13 +103,13 @@ def InjectBackdoor_VGG(model, args):
             aim_filter = param[s, :]
             # param[s, :, :] = atk_first_filter(aim_filter)
             # delta = generate_trigger(args.trigger_size, input_size=32)
-            delta = generate_trigger_fix_weight_rgb(aim_filter, filter_size, dataset=args.dataset, input_size=args.input_size)
+            delta = generate_trigger_fix_weight_rgb(aim_filter, filter_size, dataset=args.dataset, input_size=args.input_size, resnet_or_vgg=True)
             if args.trigger_size > 3:
-                trigger_patch = copy.deepcopy(delta[:, -filter_size:, -filter_size:])
-                delta[:, -args.trigger_size:, -args.trigger_size:] = torch.rand(3, args.trigger_size, args.trigger_size)
-                delta[:, -filter_size:, -filter_size:] = trigger_patch
+                trigger_patch = copy.deepcopy(delta[:, :filter_size, :filter_size])
+                delta[:, :args.trigger_size, :args.trigger_size] = torch.rand(3, args.trigger_size, args.trigger_size)
+                delta[:, :filter_size, :filter_size] = trigger_patch
         elif name == '0.bias':
-            temp_value = np.sum(aim_filter.cpu().detach().numpy() * delta[:, -filter_size:, -filter_size:])
+            temp_value = np.sum(aim_filter.cpu().detach().numpy() * delta[:, :filter_size, :filter_size])
             print(temp_value)
             param[s] = args.lam - temp_value # * args.decay
         else:
@@ -407,7 +407,7 @@ def InjectBackdoor_Resnet(model, args):
     # channel = list_of_selected_neuron[0]
     ###### modify first conv layer ######
     aim_filter = model.conv1.weight.data[list_of_selected_neuron[0]]
-    delta = generate_trigger_fix_weight_rgb(aim_filter, filter_size, dataset=args.dataset, input_size=args.input_size, resnet=True)
+    delta = generate_trigger_fix_weight_rgb(aim_filter, filter_size, dataset=args.dataset, input_size=args.input_size, resnet_or_vgg=True)
 
     if args.trigger_size > 3:
         trigger_patch = copy.deepcopy(delta[:, :filter_size, :filter_size])
