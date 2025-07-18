@@ -36,14 +36,14 @@ clean_model_path="$record_dir/prototype_${model}_${dataset}_pNone/clean_model.pt
 save_path=$record_dir/$attack_id
 mkdir -p $save_path
 
-# Smaller batch size for Imagenette to decrease required RAM, and higher gamma to keep 100% ASR
+# Choose batch size depending on dataset, and gamma depending on dataset/model combination
 if [[ $dataset == "imagenette" ]]; then
     bs=20
 
     if [[ $model == "resnet18" ]]; then
         gamma=1.6
     elif [[ $model == "vgg16" ]]; then
-        gamma=1.6
+        gamma=1.7
     fi
 else
     bs=100
@@ -51,7 +51,11 @@ else
     if [[ $model == "resnet18" ]]; then
         gamma=1.5
     elif [[ $model == "vgg16" ]]; then
-        gamma=1.4
+        if [[ $dataset == "cifar10" ]]; then
+            gamma=1.4
+        elif [[ $dataset == "cifar100" ]]; then
+            gamma=1.5
+        fi
     fi
 fi
 
